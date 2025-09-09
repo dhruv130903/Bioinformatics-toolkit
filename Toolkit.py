@@ -1,6 +1,8 @@
 # GC Content and AT/GC Ratio Calculator
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import re
 
 # ORF Finder Functions
 START_CODON = "ATG"
@@ -124,12 +126,66 @@ def translate_dna(sequence):
 
     return protein
 
+# ------------------- Protein Translation -------------------
+CODON_TABLE = {
+    'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M',
+    'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
+    'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K',
+    'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',
+    'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L',
+    'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P',
+    'CAC':'H', 'CAT':'H', 'CAA':'Q', 'CAG':'Q',
+    'CGA':'R', 'CGC':'R', 'CGG':'R', 'CGT':'R',
+    'GTA':'V', 'GTC':'V', 'GTG':'V', 'GTT':'V',
+    'GCA':'A', 'GCC':'A', 'GCG':'A', 'GCT':'A',
+    'GAC':'D', 'GAT':'D', 'GAA':'E', 'GAG':'E',
+    'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
+    'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S',
+    'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
+    'TAC':'Y', 'TAT':'Y', 'TAA':'*', 'TAG':'*',
+    'TGC':'C', 'TGT':'C', 'TGA':'*', 'TGG':'W',
+}
+
+def clean_sequence(seq):
+    """Remove FASTA headers, spaces, numbers, and non-ATGC characters"""
+    seq = seq.upper()
+    seq = re.sub(r">.*\n", "", seq)     # remove FASTA header
+    seq = re.sub(r"[^ATGC]", "", seq)   # keep only ATGC
+    return seq
+
+def codon_usage(sequence):
+    """Calculate codon usage from DNA sequence"""
+    sequence = clean_sequence(sequence)
+    
+    codon_count = {codon:0 for codon in CODON_TABLE.keys()}
+    
+    for i in range(0, len(sequence)-2, 3):
+        codon = sequence[i:i+3]
+        if codon in codon_count:
+            codon_count[codon] += 1
+    
+    # Convert to DataFrame
+    df = pd.DataFrame([
+        {"Codon": codon,
+         "Amino Acid": CODON_TABLE[codon],
+         "Count": count}
+        for codon, count in codon_count.items()
+    ])
+    
+    total_codons = df["Count"].sum()
+    if total_codons > 0:
+        df["Frequency (%)"] = (df["Count"] / total_codons * 100).round(2)
+    else:
+        df["Frequency (%)"] = 0
+    
+    return df.sort_values(by="Codon")
+
 # ------------------- MAIN APP -------------------
 st.title("🔬 Bioinformatics Toolkit")
 
 tool = st.sidebar.selectbox(
     "Choose a Tool",
-    ["ORF Finder", "GC Content Calculator", "DNA → Protein Translator"]
+    ["ORF Finder", "GC Content Calculator", "DNA → Protein Translator", "Codon Usage Analyzer"]
 )
 
 if tool == "ORF Finder":
@@ -179,3 +235,27 @@ elif tool == "DNA → Protein Translator":
             st.text_area("Protein Sequence", protein_seq, height=200)
         else:
             st.warning("Paste a DNA sequence first.")
+            
+elif tool == "Codon Usage Analyzer":
+    st.subheader("📊 Codon Usage Analyzer")
+    seq = st.text_area("Paste DNA sequence (raw or FASTA):", key="codon")
+    if st.button("Analyze Codon Usage"):
+        if seq:
+            df = codon_usage(seq)   # ✅ now directly use the dataframe
+
+            if not df.empty:
+                st.success("✅ Codon usage calculated successfully!")
+                st.dataframe(df)
+
+                # Plot codon usage frequencies
+                fig, ax = plt.subplots(figsize=(12, 6))
+                ax.bar(df["Codon"], df["Frequency (%)"])
+                ax.set_xlabel("Codon")
+                ax.set_ylabel("Frequency (%)")
+                ax.set_title("Codon Usage Frequency")
+                plt.xticks(rotation=90)
+                st.pyplot(fig)
+            else:
+                st.warning("No codons found. Check your sequence.")
+        else:
+            st.warning("Please paste a DNA sequence first.")
