@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import re
+from Bio.SeqUtils.ProtParam import ProteinAnalysis
 
 # ORF Finder Functions
 START_CODON = "ATG"
@@ -180,12 +181,32 @@ def codon_usage(sequence):
     
     return df.sort_values(by="Codon")
 
+# ------------------- Protein Property Calculator -------------------
+def clean_fasta_sequence(fasta_str: str) -> str:
+    lines = fasta_str.strip().splitlines()
+    seq = "".join(line for line in lines if not line.startswith(">"))
+    return seq.upper().replace(" ", "")
+
+def protein_property_calculator(fasta_input: str) -> dict:
+    sequence = clean_fasta_sequence(fasta_input)
+    analysed_seq = ProteinAnalysis(sequence)
+    return {
+        "Length": len(sequence),
+        "Molecular Weight (Da)": round(analysed_seq.molecular_weight(), 2),
+        "Theoretical pI": round(analysed_seq.isoelectric_point(), 2),
+        "Amino Acid Composition (%)": {aa: round(val*100, 2) for aa,val in analysed_seq.get_amino_acids_percent().items()},
+        "Aromaticity": round(analysed_seq.aromaticity(), 3),
+        "Instability Index": round(analysed_seq.instability_index(), 2),
+        "GRAVY (Hydropathicity)": round(analysed_seq.gravy(), 3),
+        "Extinction Coefficient (1 mg/ml, 280 nm)": analysed_seq.molar_extinction_coefficient()
+    }
+
 # ------------------- MAIN APP -------------------
 st.title("🔬 Bioinformatics Toolkit")
 
 tool = st.sidebar.selectbox(
     "Choose a Tool",
-    ["ORF Finder", "GC Content Calculator", "DNA → Protein Translator", "Codon Usage Analyzer"]
+    ["ORF Finder", "GC Content Calculator", "DNA → Protein Translator", "Codon Usage Analyzer", "Protein Property Calculator"]
 )
 
 if tool == "ORF Finder":
@@ -259,3 +280,23 @@ elif tool == "Codon Usage Analyzer":
                 st.warning("No codons found. Check your sequence.")
         else:
             st.warning("Please paste a DNA sequence first.")
+
+elif tool == "Protein Property Calculator":
+    st.subheader("🧬 Protein Property Calculator")
+    fasta_input = st.text_area("Paste Protein Sequence (FASTA or plain):", key="protein_prop")
+    if st.button("Calculate Properties"):
+        if fasta_input:
+            try:
+                results = protein_property_calculator(fasta_input)
+                st.success("✅ Properties calculated successfully!")
+                st.write(f"**Sequence Length:** {results['Length']}")
+                st.write(f"**Molecular Weight:** {results['Molecular Weight (Da)']} Da")
+                st.write(f"**Theoretical pI:** {results['Theoretical pI']}")
+                st.write(f"**Aromaticity:** {results['Aromaticity']}")
+                st.write(f"**Instability Index:** {results['Instability Index']}")
+                st.write(f"**GRAVY (Hydropathicity):** {results['GRAVY (Hydropathicity)']}")
+                st.write(f"**Extinction Coefficient:** {results['Extinction Coefficient (1 mg/ml, 280 nm)']}")
+                st.subheader("Amino Acid Composition (%)")
+                st.table(results["Amino Acid Composition (%)"])
+            except Exception as e:
+                st.error(f"❌ Error: {e}")
