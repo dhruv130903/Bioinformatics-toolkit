@@ -1,6 +1,7 @@
 # Bioinformatics-toolkit
  A Streamlit-based toolkit for basic bioinformatics tasks, including ORF Finder, GC Content Calculator, and DNA → Protein Translator.
- The Bioinformatics Toolkit is a lightweight, beginner-friendly web app built with Streamlit. It provides essential tools for working with DNA sequences:
+ The Bioinformatics Toolkit is a lightweight, beginner-friendly web app built with Streamlit. It provides essential tools for working with DNA sequences:	
+ 	•	Nucleotide Sequence Retrieval – Fetches nucleotide sequences directly from NCBI (GenBank) using accession IDs.
 	•	ORF Finder – Detects Open Reading Frames on both strands.
 	•	GC Content Calculator – Calculates GC %, AT %, and AT/GC ratio.
 	•	DNA → Protein Translator – Translates nucleotide sequences into amino acid sequences using the standard genetic code.
