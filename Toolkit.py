@@ -4,6 +4,29 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
+from Bio import Entrez, SeqIO
+from io import StringIO
+
+Entrez.email = "dhruv130903@gmail.com"
+
+def fetch_nucleotide_sequence(accession_id):
+    """Fetch nucleotide sequence from NCBI using accession ID"""
+    try:
+        handle = Entrez.efetch(db="nucleotide", id=accession_id, rettype="fasta", retmode="text")
+        fasta_data = handle.read()
+        handle.close()
+
+        if not fasta_data.strip():
+            return None
+
+        # Parse FASTA to get SeqRecord
+        fasta_io = StringIO(fasta_data)
+        seq_record = SeqIO.read(fasta_io, "fasta")
+        return seq_record
+
+    except Exception as e:
+        st.error(f"❌ Error: {str(e)}")
+        return None
 
 # ORF Finder Functions
 START_CODON = "ATG"
@@ -204,9 +227,9 @@ def protein_property_calculator(fasta_input: str) -> dict:
 # ------------------- MAIN APP -------------------
 st.title("🔬 Bioinformatics Toolkit")
 
-tool = st.sidebar.selectbox(
+tool = st.sidebar.radio(
     "Choose a Tool",
-    ["ORF Finder", "GC Content Calculator", "DNA → Protein Translator", "Codon Usage Analyzer", "Protein Property Calculator"]
+    ["Nucleotide Sequence Retrieval", "ORF Finder", "GC Content Calculator", "DNA → Protein Translator", "Codon Usage Analyzer", "Protein Property Calculator"]
 )
 
 if tool == "ORF Finder":
@@ -280,7 +303,7 @@ elif tool == "Codon Usage Analyzer":
                 st.warning("No codons found. Check your sequence.")
         else:
             st.warning("Please paste a DNA sequence first.")
-
+    
 elif tool == "Protein Property Calculator":
     st.subheader("🧬 Protein Property Calculator")
     fasta_input = st.text_area("Paste Protein Sequence (FASTA or plain):", key="protein_prop")
@@ -300,3 +323,20 @@ elif tool == "Protein Property Calculator":
                 st.table(results["Amino Acid Composition (%)"])
             except Exception as e:
                 st.error(f"❌ Error: {e}")
+                
+elif tool == "Nucleotide Sequence Retrieval":
+    st.subheader("📥 Nucleotide Sequence Retrieval (NCBI)")
+    accession_id = st.text_input("Enter NCBI Accession ID (e.g., NM_007294):")
+    if st.button("Fetch Sequence"):
+        if accession_id:
+            seq_record = fetch_nucleotide_sequence(accession_id)
+            if seq_record:
+                st.success(f"✅ Sequence retrieved successfully: {seq_record.id}")
+                st.write(f"**Description:** {seq_record.description}")
+                st.write(f"**Length:** {len(seq_record.seq)} bp")
+                st.text_area("Sequence (FASTA format)", 
+                             f">{seq_record.description}\n{seq_record.seq}", height=200)
+            else:
+                st.warning("⚠️ No sequence found for this ID.")
+        else:
+            st.warning("⚠️ Please enter a valid accession ID.")
